@@ -7,7 +7,7 @@ import datetime
 import os
 import platform
 
-INITIAL_URL = 'https://edubas.lms.2035.university/viewer/sessions/213/materials/3211'
+INITIAL_URL = ''
 EMAIL = ''
 PASSWORD = ''
 
