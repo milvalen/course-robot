@@ -37,7 +37,7 @@ pip install selenium
 Пример:
 
 ```python
-INITIAL_URL = 'https://edubas.lms.2035.university/viewer/sessions/`course_id`/materials/`lesson_id`'
+INITIAL_URL = 'https://`university_domain`/viewer/sessions/`course_id`/materials/`lesson_id`'
 EMAIL = 'your-email@example.com'
 PASSWORD = 'yourpassword'
 ```
@@ -51,7 +51,7 @@ PASSWORD = 'yourpassword'
 3. Запустите скрипт:
 
 ```bash
-python script.py
+python main.py
 ```
 
 Скрипт начнет выполнение: будет изменять системное время, переходить по материалам курса и эмулировать действия пользователя.
