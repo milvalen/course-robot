@@ -1,14 +1,19 @@
-from selenium import webdriver
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-import time
 import random
+import time
+import csv
 import os
 
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.chrome.webdriver import WebDriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from multiprocessing import Process
+from selenium import webdriver
+
 INITIAL_URL = ''
-EMAIL = ''
-PASSWORD = ''
+
+
+def clickAuth(driver: WebDriver): driver.find_elements(By.TAG_NAME, 'button')[1].click()
 
 
 def get_profile_path(email):
@@ -17,31 +22,27 @@ def get_profile_path(email):
     return os.path.join(base_dir, email.replace('@', '_at_').replace('.', '_dot_'))
 
 
-def click_next_page():
+def click_next_page(driver):
     button = driver.find_element(By.XPATH, '//*[@id="root"]/div/div[2]/div[2]/button[2]')
 
     ActionChains(driver).move_to_element(button).click().perform()
     print(button)
 
 
-def process_material():
+def process_material(driver):
     driver.switch_to.frame(driver.find_element(By.CLASS_NAME, 'materialFrame'))
+
     pdf_elements = driver.find_elements(By.CLASS_NAME, 'react-pdf__Document')
-    
+    video_elements = driver.find_elements(By.TAG_NAME, 'video')
+
     if pdf_elements:
         page_count = len(pdf_elements[0].find_elements(By.TAG_NAME, 'div'))
-        
         wait_time = max(page_count * 30, 300)
-        
+
         time.sleep(wait_time)
         print(f'PDF detected with {page_count} pages, waiting for {wait_time} seconds.')
-    
-    video_elements = driver.find_elements(By.TAG_NAME, 'video')
-    
-    if video_elements:
+    elif video_elements:
         video = video_elements[0]
-        driver.execute_script('arguments[0].play();', video)
-
         video_duration = driver.execute_script('return arguments[0].duration;', video)
         wait_time = max(video_duration + random.randint(10, 30), 300)
 
@@ -53,16 +54,16 @@ def process_material():
         time.sleep(wait_time)
         print(f'No PDF or video detected, waiting for {wait_time} seconds.')
 
-    click_next_page()
+    click_next_page(driver)
     driver.switch_to.default_content()
 
 
-if __name__ == '__main__':
+def run_for_account(email, password):
     chrome_options = Options()
 
     chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+    chrome_options.add_argument(f'user-data-dir={get_profile_path(email)}')
     chrome_options.add_argument('--start-maximized')
-    chrome_options.add_argument(f'user-data-dir={get_profile_path(EMAIL)}')
 
     driver = webdriver.Chrome(options=chrome_options)
 
@@ -70,9 +71,22 @@ if __name__ == '__main__':
     time.sleep(3)
 
     if "login" in driver.current_url:
-        driver.find_elements(By.TAG_NAME, 'input')[0].send_keys(EMAIL)
-        driver.find_elements(By.TAG_NAME, 'input')[2].send_keys(PASSWORD)
-        driver.find_elements(By.TAG_NAME, 'button')[1].click()
+        input_elements = driver.find_elements(By.TAG_NAME, 'input')
+
+        input_elements[0].send_keys(email)
+        input_elements[2].send_keys(password)
+        clickAuth(driver)
+        time.sleep(10)
+        clickAuth(driver)
+    elif "authorize" in driver.current_url:
+        clickAuth(driver)
 
     time.sleep(50)
-    while True: process_material()
+
+    while True: process_material(driver)
+
+
+if __name__ == '__main__':
+    with open('accounts.csv', newline='') as csvfile:
+        for row in csv.reader(csvfile):
+            Process(target=run_for_account, args=(row[0], row[1])).start()
