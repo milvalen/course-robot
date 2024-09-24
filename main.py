@@ -11,7 +11,7 @@ from selenium.webdriver.common.by import By
 from multiprocessing import Process
 from selenium import webdriver
 
-INITIAL_URL = ''
+INITIAL_URL = 'https://edubasmik.lms.2035.university/viewer/sessions/217/materials/3370'
 
 
 def get_profile_path(email: str):
@@ -20,9 +20,11 @@ def get_profile_path(email: str):
     return os.path.join(base_dir, email.replace('@', '_at_').replace('.', '_dot_'))
 
 
-def click_next_page(driver: WebDriver):
-    button = driver.find_element(By.XPATH, '//*[@id="root"]/div/div[2]/div[2]/button[2]')
-    ActionChains(driver).move_to_element(button).click().perform()
+def click_next_page(driver: WebDriver): 
+    ActionChains(driver).move_to_element(driver.find_element(
+        By.XPATH, 
+        '//*[@id="root"]/div/div[2]/div[2]/button[2]'
+        )).click().perform()
 
 def process_video(driver: WebDriver, email: str, video: WebElement):
     video_duration = driver.execute_script('return arguments[0].duration;', video)
@@ -47,7 +49,7 @@ def process_material(driver: WebDriver, email: str):
         
         if pdf_elements:
             page_count = len(pdf_elements[0].find_elements(By.XPATH, './div'))
-            wait_time = max(10, 10)
+            wait_time = max(page_count * 30, 300)
 
             print(f'{email}: PDF detected with {page_count} pages, waiting for {wait_time} seconds.')
             time.sleep(wait_time)
