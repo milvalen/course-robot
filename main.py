@@ -6,10 +6,12 @@ import os
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.chrome.webdriver import WebDriver
+from selenium.webdriver.chrome.webdriver import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from multiprocessing import Process
 from selenium import webdriver
+
 
 INITIAL_URL = ''
 STOP_URL = ''
@@ -18,7 +20,7 @@ STOP_URL = ''
 def get_profile_path(email: str) -> str:
     base_dir = 'chrome_profiles'
     if not os.path.exists(base_dir): os.makedirs(base_dir)
-    return os.path.join(base_dir, email.replace('@', '_at_').replace('.', '_dot_'))
+    return f'{os.getcwd()}/{base_dir}/{email.replace("@", "_at_").replace(".", "_dot_")}'
 
 
 def click_next_page(driver: WebDriver, button: WebElement):
@@ -52,7 +54,7 @@ def process_material(driver: WebDriver, email: str):
         nested_iframes = driver.find_elements(By.TAG_NAME, 'iframe')
         video_elements = driver.find_elements(By.TAG_NAME, 'video')
 
-        if header_elements: print(f'\n{email}: {header_elements[0].get_attribute('innerText')}')
+        if header_elements: print(f'\n{email}: {header_elements[0].get_attribute("innerText")}')
         else: raise Exception(f'{email}: No header element')
         
         if pdf_elements:
@@ -84,7 +86,7 @@ def process_material(driver: WebDriver, email: str):
         time.sleep(1)
     except Exception as e:
         driver.refresh()
-        print(f'{email}: {str(e).split('\n')[-1]}, refreshing...')
+        print(f'{email}: {str(e).split(chr(10))[0]}, refreshing...')
         time.sleep(10)
 
 
@@ -93,17 +95,17 @@ def run_for_account(email: str, password: str):
 
     chrome_options.add_argument('--disable-blink-features=AutomationControlled')
     chrome_options.add_argument(f'user-data-dir={get_profile_path(email)}')
-    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--headless=old')
+    chrome_options.add_argument('--log-level=3')
 
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(chrome_options)
     print(f'{email} loaded')
 
     driver.get(INITIAL_URL)
     time.sleep(3)
-
-    if "login" in driver.current_url:
+    
+    if 'login' in driver.current_url:
         input_elements = driver.find_elements(By.TAG_NAME, 'input')
-
         input_elements[0].send_keys(email)
         input_elements[2].send_keys(password)
         driver.find_elements(By.TAG_NAME, 'button')[1].click()
@@ -114,9 +116,13 @@ def run_for_account(email: str, password: str):
         driver.find_elements(By.TAG_NAME, 'button')[1].click()
 
         print(f'{email} authorized')
-    elif "authorize" in driver.current_url:
+    elif 'authorize' in driver.current_url:
         driver.find_elements(By.TAG_NAME, 'button')[1].click()
         print(f'{email} authorized')
+    
+    if driver.find_elements(By.CLASS_NAME, 'app-captcha'):
+        print(f'\n{email}: captcha found! try another time...\n')
+        os._exit(1)
 
     if driver.find_elements(By.XPATH, '//*[@id="content"]/div/span'):
         print(f'{email} got authorization error, reloading...')
