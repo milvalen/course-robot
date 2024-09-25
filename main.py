@@ -12,6 +12,7 @@ from multiprocessing import Process
 from selenium import webdriver
 
 INITIAL_URL = ''
+STOP_URL = ''
 
 
 def get_profile_path(email: str) -> str:
@@ -31,7 +32,7 @@ def process_video(driver: WebDriver, email: str, video: WebElement):
     print(f'{email}: Video detected with duration {video_duration} seconds, waiting for {wait_time} seconds.')
     time.sleep(wait_time)
 
-def process_empty(driver: WebDriver, email: str):
+def process_empty(email: str):
     wait_time = random.randint(300, 360)
     print(f'{email}: No PDF or video detected, waiting for {wait_time} seconds.')
     time.sleep(wait_time)
@@ -44,7 +45,7 @@ def process_material(driver: WebDriver, email: str):
 
         button_elements = driver.find_elements(
             By.XPATH, '//*[@id="root"]/div/div[2]/div[2]/button[2]'
-            )
+        )
         
         header_elements = driver.find_elements(By.XPATH, '//*[@id="root"]/div/div[2]/div[1]/h1')
         pdf_elements = driver.find_elements(By.CLASS_NAME, 'react-pdf__Document')
@@ -68,14 +69,13 @@ def process_material(driver: WebDriver, email: str):
             video_elements = driver.find_elements(By.TAG_NAME, 'video')
             
             if video_elements: process_video(driver, email, video_elements[0])
-            else: 
-                process_empty(driver, email)
+            else: process_empty(email)
 
             driver.switch_to.default_content()
             time.sleep(1)
             driver.switch_to.frame(driver.find_element(By.TAG_NAME, 'iframe'))
             time.sleep(1)
-        else: process_empty(driver, email)
+        else: process_empty(email)
 
         if button_elements: click_next_page(driver, button_elements[0])
         else: raise Exception(f'{email}: No button element')
@@ -84,7 +84,7 @@ def process_material(driver: WebDriver, email: str):
         time.sleep(1)
     except Exception as e:
         driver.refresh()
-        print(f'{e}, refreshing...')
+        print(f'{email}: {str(e).split('\n')[-1]}, refreshing...')
         time.sleep(10)
 
 
@@ -125,8 +125,7 @@ def run_for_account(email: str, password: str):
         run_for_account(email, password)
     else:
         print(f'{email} started')
-        while driver.current_url != 'https://edubasmik.lms.2035.university/viewer/sessions/217/quizzes/320':
-            process_material(driver, email)
+        while driver.current_url != STOP_URL: process_material(driver, email)
         print(f'\n{email} finished!')
 
 
