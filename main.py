@@ -11,20 +11,18 @@ from selenium.webdriver.common.by import By
 from multiprocessing import Process
 from selenium import webdriver
 
-INITIAL_URL = 'https://edubasmik.lms.2035.university/viewer/sessions/217/materials/3370'
+INITIAL_URL = ''
 
 
-def get_profile_path(email: str):
+def get_profile_path(email: str) -> str:
     base_dir = 'chrome_profiles'
     if not os.path.exists(base_dir): os.makedirs(base_dir)
     return os.path.join(base_dir, email.replace('@', '_at_').replace('.', '_dot_'))
 
 
-def click_next_page(driver: WebDriver): 
-    ActionChains(driver).move_to_element(driver.find_element(
-        By.XPATH, 
-        '//*[@id="root"]/div/div[2]/div[2]/button[2]'
-        )).click().perform()
+def click_next_page(driver: WebDriver, button: WebElement):
+    ActionChains(driver).move_to_element(button).click().perform()
+
 
 def process_video(driver: WebDriver, email: str, video: WebElement):
     video_duration = driver.execute_script('return arguments[0].duration;', video)
@@ -33,19 +31,28 @@ def process_video(driver: WebDriver, email: str, video: WebElement):
     print(f'{email}: Video detected with duration {video_duration} seconds, waiting for {wait_time} seconds.')
     time.sleep(wait_time)
 
+def process_empty(driver: WebDriver, email: str):
+    wait_time = random.randint(300, 360)
+    print(f'{email}: No PDF or video detected, waiting for {wait_time} seconds.')
+    time.sleep(wait_time)
 
 def process_material(driver: WebDriver, email: str):
     try:
         time.sleep(10)
         driver.switch_to.frame(driver.find_element(By.TAG_NAME, 'iframe'))
+        time.sleep(1)
+
+        button_elements = driver.find_elements(
+            By.XPATH, '//*[@id="root"]/div/div[2]/div[2]/button[2]'
+            )
         
-        header_element = driver.find_element(By.XPATH, '//*[@id="root"]/div/div[2]/div[1]/h1')
+        header_elements = driver.find_elements(By.XPATH, '//*[@id="root"]/div/div[2]/div[1]/h1')
         pdf_elements = driver.find_elements(By.CLASS_NAME, 'react-pdf__Document')
         nested_iframes = driver.find_elements(By.TAG_NAME, 'iframe')
         video_elements = driver.find_elements(By.TAG_NAME, 'video')
-        material_name = header_element.get_attribute('innerText')
 
-        print(f'\n{email}: {material_name}')
+        if header_elements: print(f'\n{email}: {header_elements[0].get_attribute('innerText')}')
+        else: raise Exception(f'{email}: No header element')
         
         if pdf_elements:
             page_count = len(pdf_elements[0].find_elements(By.XPATH, './div'))
@@ -55,25 +62,29 @@ def process_material(driver: WebDriver, email: str):
             time.sleep(wait_time)
         elif video_elements:
             process_video(driver, email, video_elements[0])
-        else:
+        elif nested_iframes:
             driver.switch_to.frame(nested_iframes[0])
+            time.sleep(1)
             video_elements = driver.find_elements(By.TAG_NAME, 'video')
-
-            if video_elements:
-                process_video(driver, email, video_elements[0])
-            else:
-                wait_time = random.randint(300, 360)
-                print(f'{email}: No PDF or video detected, waiting for {wait_time} seconds.')
-                time.sleep(wait_time)
+            
+            if video_elements: process_video(driver, email, video_elements[0])
+            else: 
+                process_empty(driver, email)
 
             driver.switch_to.default_content()
+            time.sleep(1)
             driver.switch_to.frame(driver.find_element(By.TAG_NAME, 'iframe'))
+            time.sleep(1)
+        else: process_empty(driver, email)
 
-        click_next_page(driver)
+        if button_elements: click_next_page(driver, button_elements[0])
+        else: raise Exception(f'{email}: No button element')
+
         driver.switch_to.default_content()
-    except:
+        time.sleep(1)
+    except Exception as e:
         driver.refresh()
-        print(f'{email} got material error, refreshing...')
+        print(f'{e}, refreshing...')
         time.sleep(10)
 
 
@@ -96,26 +107,30 @@ def run_for_account(email: str, password: str):
         input_elements[0].send_keys(email)
         input_elements[2].send_keys(password)
         driver.find_elements(By.TAG_NAME, 'button')[1].click()
+
         print(f'{email} logged in')
+
         time.sleep(10)
         driver.find_elements(By.TAG_NAME, 'button')[1].click()
+
         print(f'{email} authorized')
     elif "authorize" in driver.current_url:
         driver.find_elements(By.TAG_NAME, 'button')[1].click()
         print(f'{email} authorized')
 
-    error_message = driver.find_elements(By.XPATH, '//*[@id="content"]/div/span')
-
-    if error_message:
+    if driver.find_elements(By.XPATH, '//*[@id="content"]/div/span'):
         print(f'{email} got authorization error, reloading...')
+
         driver.close()
         run_for_account(email, password)
     else:
         print(f'{email} started')
-        while True: process_material(driver, email)
+        while driver.current_url != 'https://edubasmik.lms.2035.university/viewer/sessions/217/quizzes/320':
+            process_material(driver, email)
+        print(f'\n{email} finished!')
 
 
 if __name__ == '__main__':
     with open('accounts.csv', newline='') as csvfile:
-        for row in csv.reader(csvfile):
+        for row in csv.reader(csvfile): 
             Process(target=run_for_account, args=(row[0], row[1])).start()
